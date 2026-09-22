@@ -135,41 +135,77 @@ def info_ugai(request):
 # Alterar status da solicitação
 #------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------#
-# Função auxiliar
-def atualizar_status_solicitacao(tipo_solic, acao, id_public):
+def atualizar_status_solicitacao(tipo_solic, acao, id_public, recusa_motivo):
     if tipo_solic == "PESQ":
-        obj = get_object_or_404(DadosSolicPesquisa, id_public=id_public)
+        obj = get_object_or_404(
+            DadosSolicPesquisa,
+            id_public=id_public
+        )
+
     elif tipo_solic == "UGAI":
-        obj = get_object_or_404(DadosSolicUgai, id_public=id_public)
+        obj = get_object_or_404(
+            DadosSolicUgai,
+            id_public=id_public
+        )
+
     else:
         raise ValueError("Tipo de solicitação inválido")
 
-    if obj.status != 'PENDENTE':
-        raise ValueError("Apenas solicitações pendentes podem ser alteradas.")
+    if obj.status != "PENDENTE":
+        raise ValueError(
+            "Apenas solicitações pendentes podem ser alteradas."
+        )
 
     novo_status = STATUS_MAP.get(acao)
+
     if not novo_status:
         raise ValueError("Ação inválida")
 
+    # Salva o motivo quando for recusa
+    if acao == "RECUSAR":
+        obj.recusa_motivo = recusa_motivo
+        obj.save(update_fields=["recusa_motivo"])
+
+    # Atualiza o status
     obj.status = novo_status
     obj.save(update_fields=["status"])
+
     return obj
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def alterar_status_solic(request):
-    tipo_solic = request.data.get('tipo_solic')
-    acao = request.data.get('acao')
-    id_public = request.data.get('id_public')
+
+    tipo_solic = request.data.get("tipo_solic")
+    acao = request.data.get("acao")
+    id_public = request.data.get("id_public")
+    recusa_motivo = request.data.get("text", "")
 
     try:
-        obj = atualizar_status_solicitacao(tipo_solic, acao, id_public)
+
+        obj = atualizar_status_solicitacao(
+            tipo_solic,
+            acao,
+            id_public,
+            recusa_motivo
+        )
+
+
         return Response(
-            {"message": "Ação realizada com sucesso!", "status": obj.status},
+            {
+                "message": "Ação realizada com sucesso!",
+                "status": obj.status
+            },
             status=200
         )
+
     except ValueError as e:
-        return Response({"message": str(e)}, status=400)
+
+        return Response(
+            {"message": str(e)},
+            status=400
+        )
 
 #------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------#
